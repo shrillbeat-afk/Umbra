@@ -12,6 +12,7 @@ import android.graphics.Color;
 import android.graphics.Insets;
 import android.os.Build;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.view.WindowInsets;
 import android.window.OnBackInvokedDispatcher;
 import android.webkit.JavascriptInterface;
@@ -24,6 +25,8 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
 import androidx.webkit.WebViewAssetLoader;
+
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int CAMERA_PERMISSION_REQUEST = 41;
@@ -167,7 +170,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
-        if (bridge != null) bridge.stop();
+        if (bridge != null) { bridge.stop(); bridge.stopSpeech(); }
         if (webView != null) webView.onPause();
         super.onPause();
     }
@@ -181,6 +184,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (bridge != null) bridge.shutdownSpeech();
         if (webView != null) {
             webView.loadUrl("about:blank");
             webView.destroy();
@@ -239,6 +243,58 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String emf() {
             return hasReading ? (x + "," + y + "," + z) : "";
+        }
+
+        // ---- Sinteză vocală (motorul de voce al telefonului; nu necesită permisiuni) ----
+        private TextToSpeech tts;
+        private boolean ttsReady;
+        private String pendingSpeech;
+
+        @JavascriptInterface
+        public void speak(String text) {
+            final String t = text == null ? "" : text;
+            runOnUiThread(() -> speakNow(t));
+        }
+
+        @JavascriptInterface
+        public void stopSpeaking() {
+            runOnUiThread(this::stopSpeech);
+        }
+
+        private void speakNow(String t) {
+            if (t.isEmpty()) return;
+            if (tts == null) {
+                pendingSpeech = t;
+                tts = new TextToSpeech(MainActivity.this, status -> {
+                    if (status == TextToSpeech.SUCCESS && tts != null) {
+                        tts.setLanguage(Locale.forLanguageTag("ro-RO"));
+                        tts.setPitch(0.5f);
+                        tts.setSpeechRate(0.75f);
+                        ttsReady = true;
+                        if (pendingSpeech != null) {
+                            tts.speak(pendingSpeech, TextToSpeech.QUEUE_FLUSH, null, "umbra");
+                            pendingSpeech = null;
+                        }
+                    }
+                });
+                return;
+            }
+            if (ttsReady) tts.speak(t, TextToSpeech.QUEUE_FLUSH, null, "umbra");
+            else pendingSpeech = t;
+        }
+
+        void stopSpeech() {
+            pendingSpeech = null;
+            if (tts != null && ttsReady) tts.stop();
+        }
+
+        void shutdownSpeech() {
+            if (tts != null) {
+                tts.stop();
+                tts.shutdown();
+                tts = null;
+                ttsReady = false;
+            }
         }
 
         @JavascriptInterface
