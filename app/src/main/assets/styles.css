@@ -145,6 +145,9 @@ h2{margin:0}
 .about{padding:16px;font-size:12px;line-height:1.7;color:#aeb1bd}
 .about b{color:var(--text)}
 
+.btn.primary.on{background:linear-gradient(110deg,#ff8c85,#ffb3ae);color:#2a0f10}
+.sb-history{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;min-height:4px}
+.chip{font:10px var(--mono);letter-spacing:.06em;color:var(--mint);border:1px solid #2c3a35;background:#0f1a16;border-radius:99px;padding:5px 9px}
 @media(max-width:340px){.brand-sub{display:none}.emf-read b{font-size:36px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(min-width:600px){body{padding:16px 0}.bottom-nav{bottom:16px;border:1px solid #292b36;border-radius:20px}}

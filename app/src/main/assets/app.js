@@ -5,7 +5,7 @@
   var VERSION = '1.1';
 
   /* ---------- stocare locală ---------- */
-  var defaults = { sessions: [], active: null, settings: { vibrate: true, autoMotion: true, autoEmf: true, palette: 0 } };
+  var defaults = { sessions: [], active: null, settings: { vibrate: true, autoMotion: true, autoEmf: true, autoWord: true, voice: true, palette: 0 } };
   var db = load();
   function load() {
     try {
@@ -288,32 +288,85 @@
     if (addEvent('emf', 'Citire EMF manuală: ' + lastMag.toFixed(1) + ' µT (Δ ' + (lastEmfDelta >= 0 ? '+' : '') + lastEmfDelta.toFixed(1) + ')' + (HAS_SENSOR ? '' : ' [DEMO]'))) toast('Salvat în Jurnal');
   });
 
-  /* ---------- cutia spiritelor (simulare) ---------- */
+  /* ---------- cutia spiritelor (simulare, mod automat cu audio) ---------- */
   var WORDS = ['Aici', 'Plecați', 'Lumină', 'Frig', 'Umbră', 'Nume', 'Ajutor', 'Noapte', 'Ascultă', 'Casă', 'Vis', 'Copil', 'Ușă', 'Tăcere', 'Aproape', 'Sus', 'Jos', 'Vântul', 'Memorie', 'Ceas', 'Ecou', 'Foc', 'Apă', 'Drum'];
-  var sbTimer = null, sbWord = '';
-  $('sbBtn').addEventListener('click', function () {
-    if (sbTimer) return;
-    var scr = $('sbScreen'), w = $('sbWord'); scr.classList.add('scan'); $('sbBtn').disabled = true;
-    var iv = setInterval(function () { w.textContent = (80 + Math.floor(Math.random() * 280) / 10 + 0).toFixed(1) + ' MHz'; }, 90);
-    sbTimer = setTimeout(function () {
-      clearInterval(iv); sbTimer = null; scr.classList.remove('scan'); $('sbBtn').disabled = false;
-      sbWord = WORDS[Math.floor(Math.random() * WORDS.length)]; w.textContent = sbWord.toUpperCase(); buzz(30);
-    }, 2400);
-  });
+  var actx = null, drone = null;
+  function getCtx() {
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    actx = actx || new AC(); if (actx.resume) actx.resume(); return actx;
+  }
+  var sb = { on: false, word: '', holdUntil: 0, sweepIv: 0, wordTo: 0, noise: null, history: [] };
+  function sbRender() {
+    var h = $('sbHistory'); h.replaceChildren();
+    sb.history.slice(-6).forEach(function (w) { h.appendChild(el('span', 'chip', w)); });
+  }
+  function sbAudioStart() {
+    var c = getCtx(); if (!c) { toast('Audio indisponibil'); return; }
+    var len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var src = c.createBufferSource(); src.buffer = buf; src.loop = true;
+    var f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1200; f.Q.value = 1.1;
+    var g = c.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(.05, c.currentTime + .6);
+    src.connect(f); f.connect(g); g.connect(c.destination); src.start();
+    sb.noise = { src: src, f: f, g: g };
+  }
+  function sbAudioStop() {
+    var n = sb.noise; sb.noise = null; if (!n) return;
+    try { n.g.gain.cancelScheduledValues(actx.currentTime); n.g.gain.setTargetAtTime(0, actx.currentTime, .1); setTimeout(function () { try { n.src.stop(); } catch (e) { /* ignorat */ } }, 400); } catch (e) { /* ignorat */ }
+  }
+  function sbSpeak(word) {
+    if (!db.settings.voice || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(word); u.lang = 'ro-RO'; u.rate = .75; u.pitch = .5; u.volume = .9;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* ignorat */ }
+  }
+  function sbWordEvent() {
+    var w; do { w = WORDS[Math.floor(Math.random() * WORDS.length)]; } while (w === sb.word);
+    sb.word = w; sb.history.push(w); sbRender();
+    sb.holdUntil = Date.now() + 3800;
+    $('sbWord').textContent = w.toUpperCase(); $('sbScreen').classList.remove('scan');
+    buzz(30);
+    if (sb.noise) { try { var t = actx.currentTime; sb.noise.g.gain.cancelScheduledValues(t); sb.noise.g.gain.setTargetAtTime(.012, t, .05); sb.noise.g.gain.setTargetAtTime(.05, t + 2.6, .3); } catch (e) { /* ignorat */ } }
+    sbSpeak(w);
+    if (db.settings.autoWord && activeSession()) addEvent('word', 'Cuvânt aleatoriu: „' + w + '” (simulare)');
+    sb.wordTo = setTimeout(sbWordEvent, 6000 + Math.random() * 6000);
+  }
+  function sbStart() {
+    if (sb.on) return; sb.on = true;
+    $('sbBtn').textContent = '■ Oprește cutia'; $('sbBtn').classList.add('on');
+    sbAudioStart();
+    sb.holdUntil = 0; $('sbWord').textContent = '· · ·';
+    sb.sweepIv = setInterval(function () {
+      if (Date.now() < sb.holdUntil) return;
+      $('sbScreen').classList.add('scan');
+      var f = 87.5 + Math.random() * 20.5; $('sbWord').textContent = f.toFixed(1) + ' MHz';
+      if (sb.noise) { try { var t = actx.currentTime; sb.noise.f.frequency.setTargetAtTime(300 + Math.random() * 2800, t, .03); sb.noise.g.gain.setTargetAtTime(.02 + Math.random() * .05, t, .03); } catch (e) { /* ignorat */ } }
+    }, 140);
+    sb.wordTo = setTimeout(sbWordEvent, 3500 + Math.random() * 3000);
+  }
+  function sbStop() {
+    if (!sb.on) return; sb.on = false;
+    clearInterval(sb.sweepIv); clearTimeout(sb.wordTo); sbAudioStop();
+    try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) { /* ignorat */ }
+    $('sbBtn').textContent = '▶ Pornește cutia'; $('sbBtn').classList.remove('on');
+    $('sbScreen').classList.remove('scan'); if (!sb.word) $('sbWord').textContent = '· · ·'; else $('sbWord').textContent = sb.word.toUpperCase();
+  }
+  $('sbBtn').addEventListener('click', function () { sb.on ? sbStop() : sbStart(); });
   $('sbSave').addEventListener('click', function () {
-    if (!sbWord) { toast('Scanează mai întâi'); return; }
-    if (addEvent('word', 'Cuvânt aleatoriu: „' + sbWord + '” (simulare)')) toast('Salvat în Jurnal');
+    if (!sb.word) { toast('Pornește cutia și așteaptă un cuvânt'); return; }
+    if (addEvent('word', 'Cuvânt aleatoriu: „' + sb.word + '” (simulare)')) toast('Salvat în Jurnal');
   });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) sbStop(); });
 
   /* ---------- sunet ambiental ---------- */
-  var actx = null, drone = null;
   function setSound(on) {
     var b = $('soundBtn'); b.setAttribute('aria-checked', on ? 'true' : 'false');
     $('soundStatus').textContent = on ? 'Sunet activ. Ton grav generat de aplicație.' : 'Sunet dezactivat. Un ton grav generat de aplicație, fără microfon.';
     if (on) {
       try {
-        var AC = window.AudioContext || window.webkitAudioContext; if (!AC) { toast('Audio indisponibil'); return; }
-        actx = actx || new AC(); if (actx.resume) actx.resume();
+        if (!getCtx()) { toast('Audio indisponibil'); return; }
         var g = actx.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(.06, actx.currentTime + 1.5);
         var f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 220;
         var o1 = actx.createOscillator(), o2 = actx.createOscillator(); o1.frequency.value = 55; o2.frequency.value = 57.3;
@@ -424,6 +477,8 @@
     g.appendChild(switchRow('Vibrații', 'La capturi și evenimente.', 'vibrate'));
     g.appendChild(switchRow('Note automate: mișcare', 'În sesiune, notează mișcarea din imagine.', 'autoMotion'));
     g.appendChild(switchRow('Note automate: EMF', 'În sesiune, notează variațiile mari ale câmpului magnetic.', 'autoEmf'));
+    g.appendChild(switchRow('Cutia spiritelor: voce', 'Cuvântul este rostit cu vocea telefonului (sinteză vocală).', 'voice'));
+    g.appendChild(switchRow('Note automate: cuvinte', 'În sesiune, notează cuvintele generate de cutie.', 'autoWord'));
     root.appendChild(g);
     root.appendChild(el('div', 'list-title', 'Date'));
     var g2 = el('div', 'set-group'); var r = el('div', 'set-row'); var l = el('div');
