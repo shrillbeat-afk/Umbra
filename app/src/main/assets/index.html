@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d13" />
+  <meta name="description" content="Umbra — instrumente de investigație paranormală, create pentru divertisment." />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Umbra — Investigator paranormal</title>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="sigil" aria-hidden="true">✳</div>
+      <div><div class="brand-name">UMBRA</div><div class="brand-sub">INSTRUMENTE DE INVESTIGAȚIE</div></div>
+    </div>
+    <button class="sess-pill" id="sessPill" aria-label="Sesiune de investigație"><i class="dot"></i><span id="sessText">FĂRĂ SESIUNE</span></button>
+  </header>
+
+  <main>
+    <section class="tab active" id="tab-scanner" aria-label="Scanner">
+      <div class="thermal-view" id="thermalView">
+        <video id="cameraVideo" autoplay muted playsinline hidden></video>
+        <canvas id="thermalCanvas" aria-label="Imagine live cu efect vizual termic"></canvas>
+        <div class="camera-placeholder">
+          <span class="cam-icon" aria-hidden="true">◉</span>
+          <b>Imaginea camerei va apărea aici</b>
+          <span>Apasă „Pornește camera” pentru a începe</span>
+        </div>
+        <div class="view-hud">
+          <span class="hud-pill" id="hudPalette">TERMIC · SIM</span>
+          <span class="hud-pill hud-motion" id="hudMotion" hidden>◐ MIȘCARE</span>
+          <span class="hud-pill hud-rec"><i></i><span id="recStatus">STANDBY</span></span>
+        </div>
+        <div class="crosshair" aria-hidden="true"></div>
+        <div class="palette"><span>RECE</span><i class="palette-strip" id="paletteStrip"></i><span>CALD</span></div>
+      </div>
+
+      <button class="btn primary big" id="scanBtn">◉ &nbsp;Pornește camera</button>
+      <div class="tool-row">
+        <button class="btn ghost" id="snapBtn" aria-label="Fă o captură"><span>▣</span>Captură</button>
+        <button class="btn ghost" id="paletteBtn" aria-label="Schimbă paleta"><span>◐</span>Paletă</button>
+        <button class="btn ghost" id="flipBtn" aria-label="Schimbă camera"><span>⟲</span>Cameră</button>
+      </div>
+
+      <div class="status-card">
+        <div class="status-icon" aria-hidden="true">⌁</div>
+        <div class="status-copy">
+          <div class="status-title">Vedere termică simulată</div>
+          <div class="status-desc">Culorile urmăresc luminozitatea imaginii; telefonul nu măsoară temperatura.</div>
+        </div>
+        <div class="status-val" id="motionVal">MIȘC · 0%</div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-tools" aria-label="Instrumente">
+      <article class="card">
+        <div class="card-head">
+          <div><div class="eyebrow">Câmp electromagnetic</div><h2>Detector EMF</h2></div>
+          <span class="tag" id="emfMode">—</span>
+        </div>
+        <div class="emf-read"><b id="emfVal">—</b><span>µT</span><em id="emfDelta">Δ 0.0</em></div>
+        <div class="leds" id="emfLeds" role="img" aria-label="Nivel EMF"><i></i><i></i><i></i><i></i><i></i></div>
+        <canvas id="emfGraph" width="420" height="84" aria-label="Grafic EMF"></canvas>
+        <div class="row-btns">
+          <button class="btn ghost" id="emfCal">Calibrează</button>
+          <button class="btn ghost" id="emfLog">Salvează în jurnal</button>
+        </div>
+        <p class="hint" id="emfHint">Citește câmpul magnetic real al telefonului. Metalul, cablurile și aparatele electrice îl modifică; nu este o dovadă a vreunei prezențe.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div><div class="eyebrow">Simulare · cuvinte aleatorii</div><h2>Cutia spiritelor</h2></div>
+          <span class="tag sim">SIM</span>
+        </div>
+        <div class="sb-screen" id="sbScreen" aria-live="polite"><span id="sbWord">· · ·</span></div>
+        <div class="row-btns">
+          <button class="btn primary" id="sbBtn">Scanează frecvențe</button>
+          <button class="btn ghost" id="sbSave">Salvează cuvântul</button>
+        </div>
+        <p class="hint">Cuvintele sunt alese la întâmplare dintr-o listă. Este un joc, nu o comunicare.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div><div class="eyebrow">Atmosferă</div><h2>Sunet ambiental</h2></div>
+          <button class="switch" id="soundBtn" role="switch" aria-checked="false" aria-label="Sunet ambiental"><i></i></button>
+        </div>
+        <p class="hint" id="soundStatus">Sunet dezactivat. Un ton grav generat de aplicație, fără microfon.</p>
+      </article>
+    </section>
+
+    <section class="tab" id="tab-log" aria-label="Jurnal"><div id="logRoot"></div></section>
+    <section class="tab" id="tab-settings" aria-label="Setări"><div id="settingsRoot"></div></section>
+  </main>
+
+  <p class="notice">Umbra este o aplicație de divertisment. Efectul termic și cutia spiritelor sunt simulări. Nu detectează fenomene paranormale.</p>
+</div>
+
+<nav class="bottom-nav" role="tablist" aria-label="Navigare">
+  <button class="nav-item active" role="tab" data-tab="scanner"><span aria-hidden="true">⌖</span>Scanner</button>
+  <button class="nav-item" role="tab" data-tab="tools"><span aria-hidden="true">⌁</span>Instrumente</button>
+  <button class="nav-item" role="tab" data-tab="log"><span aria-hidden="true">▤</span>Jurnal</button>
+  <button class="nav-item" role="tab" data-tab="settings"><span aria-hidden="true">⚙</span>Setări</button>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="overlay" id="overlay"><section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-head"><h2 id="sheetTitle"></h2><button class="close" id="closeSheet" aria-label="Închide">×</button></div>
+  <div id="sheetBody"></div>
+</section></div>
+
+<div class="overlay intro-wrap" id="intro"><section class="sheet intro" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+  <div class="sigil big" aria-hidden="true">✳</div>
+  <h2 id="introTitle">Bine ai venit în Umbra</h2>
+  <p>Un set de instrumente pentru investigații „paranormale”, create pentru <b>distracție</b>.</p>
+  <ul class="intro-list">
+    <li><b>Vedere termică</b> — un efect de culoare peste imaginea camerei. Simulare, nu măsurătoare.</li>
+    <li><b>Detector EMF</b> — citește câmpul magnetic real al telefonului. Nu detectează fantome.</li>
+    <li><b>Cutia spiritelor</b> — cuvinte alese la întâmplare.</li>
+    <li><b>Jurnal</b> — sesiuni, note și capturi, salvate doar pe telefonul tău.</li>
+  </ul>
+  <p class="small">Camera este folosită doar după permisiunea ta, iar imaginea nu părăsește telefonul.</p>
+  <button class="btn primary big" id="introOk">Am înțeles, începem</button>
+</section></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Cheia de semnare NU se păstrează în proiect. Se citește din variabile de mediu
+// (vezi PUBLICARE-GOOGLE-PLAY.md). Fără ele, se construiește un AAB nesemnat.
+def keystorePath = System.getenv('UMBRA_KEYSTORE_PATH')
+
+android {
+    namespace 'ro.umbra.app'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'ro.umbra.app'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePath) {
+                storeFile file(keystorePath)
+                storePassword System.getenv('UMBRA_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('UMBRA_KEY_ALIAS')
+                keyPassword System.getenv('UMBRA_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystorePath) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
